@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{{ site_title }}</title>
+		<style>
+				body {
+						background-color: #121212;
+						font-family: sans-serif;
+						color: #fff;
+						padding: .5em;
+				}
+				
+				h1 { font-size: 1.7em; }
+				
+				.button {
+						background-color: #121212;
+						border: 2px solid #BB86FC;
+						transition-duration: 0.2s;
+						color: white;
+						padding: 1.2em;
+						text-align: center;
+						text-decoration: none;
+						width: 100%;
+						font-size: 16px;
+						margin: .5em 0;
+						border-radius: 1px;
+				}
+				
+				.button:hover {
+					background-color: rgba(187, 134, 252, .04);
+				}
+				
+				.button:active {
+					background-color: rgba(187, 134, 252, .12);
+				}
+				
+				#message {
+				  opacity: 0;
+				  transition-duration: 0.2s;
+					position: fixed;
+					min-width: 33vw;
+					padding: 1em;
+					color: black;
+					text-align: center;
+					font-size: 1.3em;
+					top: 0;
+					left: 50%;
+					transform: translate(-50%, 1em);
+					background-color: #fff;
+					border-radius: 3px;
+					box-shadow: 0 1px 1px 0 rgba(66, 66, 66, 0.08), 0 1px 3px 1px rgba(66, 66, 66, 0.16);
+				}
+		</style>
+</head>
+
+<body>
+	<div class="container">
+			<h1>Mass Storage Switcher</h1>
+			<h3>Images</h3>
+					{% for filename in images %}
+					<input class="button" type="button" value="{{filename}}" data-filename="{{filename}}" data-type="file"><br>
+					{% endfor %}
+					
+			<h3>ISOs</h3>
+					{% for filename in cdroms %}
+					<input class="button" type="button" value="{{filename}}" data-filename="{{filename}}" data-type="cdrom"><br>
+					{% endfor %}
+					
+			<h3>Unmount</h3>
+					<input class="button" type="button" value="Unmount Mass Storage Device" data-type="clear"><br>
+	</div>
+	<div id="message">
+	hello
+	</div>
+	<script>
+window.onload = function() {    
+	let elements = document.getElementsByClassName("button");
+
+	for(let i = 0; i < elements.length; i++) {
+			elements[i].onclick = function () {
+					let filename = this.getAttribute('data-filename');
+					let type = this.getAttribute('data-type'); 
+					var xhttp = new XMLHttpRequest();
+					xhttp.open("POST", "/?type=" + encodeURIComponent(type) + "&filename=" + encodeURIComponent(filename), true);
+					xhttp.onreadystatechange = function() {
+						 if (this.readyState == 4) {
+								var response = this.responseText;
+								let element = document.getElementById("message");
+								element.innerText = response;
+								element.style.opacity = 1;
+								setTimeout(function() {
+										element.style.opacity = 0;
+								}, 5000);
+						 }
+					};
+					xhttp.send();
+					
+			}
+	}
+};
+	</script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+#!/bin/bash
+
+# Configures USB gadgets per: https://www.kernel.org/doc/Documentation/usb/gadget_configfs.txt
+
+# Exit on first error.
+set -e
+
+# /usr/bin/echo commands to stdout.
+set -x
+
+# Treat undefined environment variables as errors.
+set -u
+
+/usr/sbin/modprobe libcomposite
+
+# Adapted from https://github.com/girst/hardpass-sendHID/blob/master/README.md
+
+cd /sys/kernel/config/usb_gadget/
+/usr/bin/mkdir -p g1
+cd g1
+
+/usr/bin/echo 0x1d6b > idVendor  # Linux Foundation
+/usr/bin/echo 0x0104 > idProduct # Multifunction Composite Gadget
+/usr/bin/echo 0x0100 > bcdDevice # v1.0.0
+/usr/bin/echo 0x0200 > bcdUSB    # USB2
+
+STRINGS_DIR="strings/0x409"
+/usr/bin/mkdir -p "$STRINGS_DIR"
+/usr/bin/echo "6b65796d696d6570690" > "${STRINGS_DIR}/serialnumber"
+/usr/bin/echo "tinypilot" > "${STRINGS_DIR}/manufacturer"
+/usr/bin/echo "Multifunction USB Device" > "${STRINGS_DIR}/product"
+
+# Keyboard
+KEYBOARD_FUNCTIONS_DIR="functions/hid.keyboard"
+/usr/bin/mkdir -p "$KEYBOARD_FUNCTIONS_DIR"
+/usr/bin/echo 1 > "${KEYBOARD_FUNCTIONS_DIR}/protocol" # Keyboard
+/usr/bin/echo 1 > "${KEYBOARD_FUNCTIONS_DIR}/subclass" # Boot interface subclass
+/usr/bin/echo 8 > "${KEYBOARD_FUNCTIONS_DIR}/report_length"
+# Write the report descriptor
+# Source: https://www.kernel.org/doc/html/latest/usb/gadget_hid.html
+D=$(/usr/bin/mktemp)
+/usr/bin/echo -ne \\x05\\x01 >> "$D" # USAGE_PAGE (Generic Desktop)
+/usr/bin/echo -ne \\x09\\x06 >> "$D" # USAGE (Keyboard)
+/usr/bin/echo -ne \\xa1\\x01 >> "$D" # COLLECTION (Application)
+/usr/bin/echo -ne \\x05\\x07 >> "$D" #   USAGE_PAGE (Keyboard)
+/usr/bin/echo -ne \\x19\\xe0 >> "$D" #   USAGE_MINIMUM (Keyboard LeftControl)
+/usr/bin/echo -ne \\x29\\xe7 >> "$D" #   USAGE_MAXIMUM (Keyboard Right GUI)
+/usr/bin/echo -ne \\x15\\x00 >> "$D" #   LOGICAL_MINIMUM (0)
+/usr/bin/echo -ne \\x25\\x01 >> "$D" #   LOGICAL_MAXIMUM (1)
+/usr/bin/echo -ne \\x75\\x01 >> "$D" #   REPORT_SIZE (1)
+/usr/bin/echo -ne \\x95\\x08 >> "$D" #   REPORT_COUNT (8)
+/usr/bin/echo -ne \\x81\\x02 >> "$D" #   INPUT (Data,Var,Abs)
+/usr/bin/echo -ne \\x95\\x01 >> "$D" #   REPORT_COUNT (1)
+/usr/bin/echo -ne \\x75\\x08 >> "$D" #   REPORT_SIZE (8)
+/usr/bin/echo -ne \\x81\\x03 >> "$D" #   INPUT (Cnst,Var,Abs)
+/usr/bin/echo -ne \\x95\\x05 >> "$D" #   REPORT_COUNT (5)
+/usr/bin/echo -ne \\x75\\x01 >> "$D" #   REPORT_SIZE (1)
+/usr/bin/echo -ne \\x05\\x08 >> "$D" #   USAGE_PAGE (LEDs)
+/usr/bin/echo -ne \\x19\\x01 >> "$D" #   USAGE_MINIMUM (Num Lock)
+/usr/bin/echo -ne \\x29\\x05 >> "$D" #   USAGE_MAXIMUM (Kana)
+/usr/bin/echo -ne \\x91\\x02 >> "$D" #   OUTPUT (Data,Var,Abs)
+/usr/bin/echo -ne \\x95\\x01 >> "$D" #   REPORT_COUNT (1)
+/usr/bin/echo -ne \\x75\\x03 >> "$D" #   REPORT_SIZE (3)
+/usr/bin/echo -ne \\x91\\x03 >> "$D" #   OUTPUT (Cnst,Var,Abs)
+/usr/bin/echo -ne \\x95\\x06 >> "$D" #   REPORT_COUNT (6)
+/usr/bin/echo -ne \\x75\\x08 >> "$D" #   REPORT_SIZE (8)
+/usr/bin/echo -ne \\x15\\x00 >> "$D" #   LOGICAL_MINIMUM (0)
+/usr/bin/echo -ne \\x25\\x65 >> "$D" #   LOGICAL_MAXIMUM (101)
+/usr/bin/echo -ne \\x05\\x07 >> "$D" #   USAGE_PAGE (Keyboard)
+/usr/bin/echo -ne \\x19\\x00 >> "$D" #   USAGE_MINIMUM (Reserved)
+/usr/bin/echo -ne \\x29\\x65 >> "$D" #   USAGE_MAXIMUM (Keyboard Application)
+/usr/bin/echo -ne \\x81\\x00 >> "$D" #   INPUT (Data,Ary,Abs)
+/usr/bin/echo -ne \\xc0 >> "$D"      # END_COLLECTION
+/usr/bin/cp "$D" "${KEYBOARD_FUNCTIONS_DIR}/report_desc"
+
+# Mouse
+MOUSE_FUNCTIONS_DIR="functions/hid.mouse"
+/usr/bin/mkdir -p "$MOUSE_FUNCTIONS_DIR"
+/usr/bin/echo 0 > "${MOUSE_FUNCTIONS_DIR}/protocol"
+/usr/bin/echo 0 > "${MOUSE_FUNCTIONS_DIR}/subclass"
+/usr/bin/echo 5 > "${MOUSE_FUNCTIONS_DIR}/report_length"
+# Write the report descriptor
+D=$(/usr/bin/mktemp)
+/usr/bin/echo -ne \\x05\\x01 >> "$D"      # USAGE_PAGE (Generic Desktop)
+/usr/bin/echo -ne \\x09\\x02 >> "$D"      # USAGE (Mouse)
+/usr/bin/echo -ne \\xA1\\x01 >> "$D"      # COLLECTION (Application)
+                                 #   8-buttons
+/usr/bin/echo -ne \\x05\\x09 >> "$D"      #   USAGE_PAGE (Button)
+/usr/bin/echo -ne \\x19\\x01 >> "$D"      #   USAGE_MINIMUM (Button 1)
+/usr/bin/echo -ne \\x29\\x08 >> "$D"      #   USAGE_MAXIMUM (Button 8)
+/usr/bin/echo -ne \\x15\\x00 >> "$D"      #   LOGICAL_MINIMUM (0)
+/usr/bin/echo -ne \\x25\\x01 >> "$D"      #   LOGICAL_MAXIMUM (1)
+/usr/bin/echo -ne \\x95\\x08 >> "$D"      #   REPORT_COUNT (8)
+/usr/bin/echo -ne \\x75\\x01 >> "$D"      #   REPORT_SIZE (1)
+                                 #   x,y absolute coordinates
+/usr/bin/echo -ne \\x81\\x02 >> "$D"      #   INPUT (Data,Var,Abs)
+/usr/bin/echo -ne \\x05\\x01 >> "$D"      #   USAGE_PAGE (Generic Desktop)
+/usr/bin/echo -ne \\x09\\x30 >> "$D"      #   USAGE (X)
+/usr/bin/echo -ne \\x09\\x31 >> "$D"      #   USAGE (Y)
+/usr/bin/echo -ne \\x16\\x00\\x00 >> "$D" #   LOGICAL_MINIMUM (0)
+/usr/bin/echo -ne \\x26\\xFF\\x7F >> "$D" #   LOGICAL_MAXIMUM (32767)
+/usr/bin/echo -ne \\x75\\x10 >> "$D"      #   REPORT_SIZE (16)
+/usr/bin/echo -ne \\x95\\x02 >> "$D"      #   REPORT_COUNT (2)
+/usr/bin/echo -ne \\x81\\x02 >> "$D"      #   INPUT (Data,Var,Abs)
+/usr/bin/echo -ne \\xC0 >> "$D"           # END_COLLECTION
+/usr/bin/cp "$D" "${MOUSE_FUNCTIONS_DIR}/report_desc"
+
+CONFIG_INDEX=1
+CONFIGS_DIR="configs/c.${CONFIG_INDEX}"
+/usr/bin/mkdir -p "$CONFIGS_DIR"
+/usr/bin/echo 250 > "${CONFIGS_DIR}/MaxPower"
+
+CONFIGS_STRINGS_DIR="${CONFIGS_DIR}/strings/0x409"
+/usr/bin/mkdir -p "$CONFIGS_STRINGS_DIR"
+/usr/bin/echo "Config ${CONFIG_INDEX}: ECM network" > "${CONFIGS_STRINGS_DIR}/configuration"
+
+#Mass Storage
+MASS_FUNCTIONS_DIR="functions/mass_storage.usb0"
+/usr/bin/mkdir -p "$MASS_FUNCTIONS_DIR/lun.0"
+/usr/bin/echo 1 > "${MASS_FUNCTIONS_DIR}/stall"
+/usr/bin/echo 1 > "${MASS_FUNCTIONS_DIR}/lun.0/removable"
+/usr/bin/echo 0 > "${MASS_FUNCTIONS_DIR}/lun.0/cdrom"
+/usr/bin/echo 0 > "${MASS_FUNCTIONS_DIR}/lun.0/ro"
+/usr/bin/echo 0 > "${MASS_FUNCTIONS_DIR}/lun.0/nofua"
+/usr/bin/echo "" > "${MASS_FUNCTIONS_DIR}/lun.0/file"
+
+/usr/bin/ln -s "$KEYBOARD_FUNCTIONS_DIR" "${CONFIGS_DIR}/"
+/usr/bin/ln -s "$MOUSE_FUNCTIONS_DIR" "${CONFIGS_DIR}/"
+/usr/bin/ln -s "$MASS_FUNCTIONS_DIR" "${CONFIGS_DIR}/"
+
+
+/usr/bin/ls /sys/class/udc > UDC
+
+/usr/bin/chmod 777 /dev/hidg0
+/usr/bin/chmod 777 /dev/hidg1
+/usr/bin/chmod 777 "${MASS_FUNCTIONS_DIR}/lun.0/cdrom"
+/usr/bin/chmod 777 "${MASS_FUNCTIONS_DIR}/lun.0/file"
+/usr/bin/chmod 777 /sys/kernel/config/usb_gadget/g1/UDC
